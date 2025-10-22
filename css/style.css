@@ -1,0 +1,35 @@
+/* style.css */
+
+
+html, body {
+margin: 0;
+padding: 0;
+width: 100%;
+height: 100%;
+overflow: hidden;
+background: #020617;
+font-family: Arial, sans-serif;
+}
+
+
+canvas {
+display: block;
+width: 100%;
+height: 100%;
+background: linear-gradient(180deg, #020617, #07101a);
+}
+
+
+.hud {
+position: fixed;
+top: 10px;
+left: 50%;
+transform: translateX(-50%);
+display: flex;
+gap: 12px;
+background: rgba(0,0,0,0.3);
+padding: 6px 12px;
+border-radius: 8px;
+color: #dff7ff;
+font-size: 14px;
+}
