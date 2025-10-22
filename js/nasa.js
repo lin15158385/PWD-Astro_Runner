@@ -3,24 +3,25 @@
 
 export const neoCache = [];
 
-
-export async function fetchNEOs(API_KEY='DEMO_KEY'){
-const today = new Date();
-const yyyy = today.getFullYear();
-const mm = String(today.getMonth()+1).padStart(2,'0');
-const dd = String(today.getDate()).padStart(2,'0');
-const start = `${yyyy}-${mm}-${dd}`;
-const url = `https://api.nasa.gov/neo/rest/v1/feed?start_date=${start}&end_date=${start}&api_key=${API_KEY}`;
-try{
-const res = await fetch(url);
-if(!res.ok) throw new Error('API error '+res.status);
-const data = await res.json();
-const objs = data.near_earth_objects[start] || [];
-neoCache.push(...objs);
-console.log(`Fetched ${objs.length} NEOs`);
-}catch(err){
-console.warn('Failed to fetch NEOs, using procedural meteors',err);
-}
+export async function fetchNEOs(API_KEY='DEMO_KEY') {
+  const today = new Date();
+  const yyyy = today.getFullYear();
+  const mm = String(today.getMonth()+1).padStart(2,'0');
+  const dd = String(today.getDate()).padStart(2,'0');
+  const start = `${yyyy}-${mm}-${dd}`;
+  const url = `https://api.nasa.gov/neo/rest/v1/feed?start_date=${start}&end_date=${start}&api_key=${API_KEY}`;
+  const neoArray = [];
+  try {
+    const res = await fetch(url);
+    if(!res.ok) throw new Error('API error '+res.status);
+    const data = await res.json();
+    const objs = data.near_earth_objects[start] || [];
+    neoArray.push(...objs);
+    console.log(`Fetched ${objs.length} NEOs`);
+  } catch(err) {
+    console.warn('Failed to fetch NEOs, using procedural meteors', err);
+  }
+  return neoArray; // ← retornar array para main.js
 }
 
 

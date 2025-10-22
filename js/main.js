@@ -18,11 +18,10 @@ resize();
 
 // fetch NEOs from NASA and store globally
 window.neoCache = [];
-fetchNEOs().then(() => {
-window.neoCache = window.neoCache;
-console.log('NEOs fetched and cached');
+fetchNEOs().then(neos => {
+  window.neoCache = neos;   // guardar o array retornado
+  console.log('NEOs fetched and cached:', window.neoCache.length);
 });
-
 
 // boot
 initGame({ canvas, ctx });
