@@ -29,14 +29,17 @@ export function createMeteorManager(canvas, player){
     const altNorm = Math.min(1000, altitude)/1000;
     let gravity = gravityBase * (1 - 0.6*Math.exp(-altNorm*6) + altNorm*1.2);
     gravity = Math.max(0.04, Math.min(0.36, gravity));
-
+    if(player.buffs.slowTime.active) gravity *= 0.4;
+    
     for(let i=objects.length-1;i>=0;i--){
       const o = objects[i];
       o.y += (o.speed * 100 * gravity) * (dt/16);
       const dx = Math.abs(o.x - player.x);
       const dy = Math.abs(o.y - player.y);
       if(dx < (o.size/2 + player.size) && dy < (o.size/2 + player.size)){
-        if(o.type==='meteor') player.lives -=1;
+        if(o.type==='meteor' && !player.buffs.shield.active){
+        player.lives -= 1;
+        } 
         objects.splice(i,1);
       } else if(o.y>canvas.height+120){
         objects.splice(i,1);

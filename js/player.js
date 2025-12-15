@@ -1,34 +1,53 @@
 export function createPlayer(canvas){
   const p = {
-    x:canvas.width/2,
-    y:canvas.height*0.8,
-    vx:0,vy:0,
-    speed:4,
-    size:18,
-    color:'#fff'
+    x: canvas.width/2,
+    y: canvas.height*0.8,
+    vx: 0, vy: 0,
+    speed: 4,
+    baseSpeed: 4,
+    size: 18,
+    color: '#fff',
+
+    buffs: {
+      shield: { active:false, time:0 },
+      slowTime: { active:false, time:0 },
+      doubleScore: { active:false, time:0 },
+      magnet: { active:false, time:0 },
+      boost: { active:false, time:0 }
+    }
   };
 
-  const keys={};
-  window.addEventListener('keydown',e=>keys[e.code]=true);
-  window.addEventListener('keyup',e=>keys[e.code]=false);
+  const keys = {};
+  window.addEventListener('keydown', e => keys[e.code] = true);
+  window.addEventListener('keyup', e => keys[e.code] = false);
 
   p.update = (t) => {
-    if(keys['ArrowLeft']) p.vx=-p.speed;
-    else if(keys['ArrowRight']) p.vx=p.speed;
-    else p.vx=0;
+    if(keys['ArrowLeft']) p.vx = -p.speed;
+    else if(keys['ArrowRight']) p.vx = p.speed;
+    else p.vx = 0;
 
-    if(keys['ArrowUp']) p.vy=-p.speed;
-    else if(keys['ArrowDown']) p.vy=p.speed;
-    else p.vy=0;
+    if(keys['ArrowUp']) p.vy = -p.speed;
+    else if(keys['ArrowDown']) p.vy = p.speed;
+    else p.vy = 0;
 
     p.x += p.vx;
     p.y += p.vy;
+
     p.x = Math.max(p.size, Math.min(canvas.width - p.size, p.x));
     p.y = Math.max(p.size, Math.min(canvas.height - p.size, p.y));
   };
 
   p.draw = (ctx) => {
-    // chama do motor (propulsão)
+    // aura do shield
+    if(p.buffs.shield.active){
+      ctx.beginPath();
+      ctx.strokeStyle = 'rgba(0,200,255,0.8)';
+      ctx.lineWidth = 3;
+      ctx.arc(p.x, p.y, p.size+6, 0, Math.PI*2);
+      ctx.stroke();
+    }
+
+    // chama do motor
     const flame = ctx.createLinearGradient(p.x, p.y, p.x, p.y + p.size*2);
     flame.addColorStop(0, 'rgba(0,200,255,0.8)');
     flame.addColorStop(1, 'rgba(0,50,255,0)');
@@ -40,11 +59,8 @@ export function createPlayer(canvas){
     ctx.closePath();
     ctx.fill();
 
-    // corpo da nave
-    const grad = ctx.createLinearGradient(p.x - p.size, p.y - p.size, p.x + p.size, p.y + p.size);
-    grad.addColorStop(0, '#ddd');
-    grad.addColorStop(1, '#fff');
-    ctx.fillStyle = grad;
+    // corpo
+    ctx.fillStyle = '#fff';
     ctx.beginPath();
     ctx.moveTo(p.x, p.y - p.size);
     ctx.lineTo(p.x - p.size/2, p.y + p.size);

@@ -1,6 +1,8 @@
 // game.js — main game loop with menu, highscores, hover NEO names
 import { createPlayer } from './player.js';
 import { createMeteorManager } from './meteors.js';
+import { createBuffManager } from './buffs.js';
+
 
 function getHighscores() {
   return JSON.parse(localStorage.getItem('astroRunnerHighscores')) || [];
@@ -37,6 +39,8 @@ export function initGame({ canvas, ctx }) {
 
   const player = createPlayer(canvas);
   const meteorManager = createMeteorManager(canvas, player);
+  const buffManager = createBuffManager(canvas, player);
+
 
   const state = {
     running: false,
@@ -116,10 +120,16 @@ export function initGame({ canvas, ctx }) {
     player.update(t);
 
     // progressão
-    player.score += 0.05;
-    state.altitude += 0.05;
-
     const prevLives = player.lives;
+
+    buffManager.maybeSpawn(t);
+    buffManager.update(16);
+    buffManager.updateBuffTimers(16);
+
+    let scoreGain = player.buffs.doubleScore.active ? 0.1 : 0.05;
+    player.score += scoreGain;
+    state.altitude += scoreGain;
+
 
     meteorManager.maybeSpawn(t, state.altitude);
     meteorManager.update(16, state.altitude);
@@ -169,7 +179,7 @@ export function initGame({ canvas, ctx }) {
         ctx.fillText(label, m.x, m.y - m.size);
       }
     }
-
+  buffManager.draw(ctx);
     ctx.fillStyle = '#dff7ff';
     ctx.font = '16px Arial';
     ctx.textAlign = 'left';
