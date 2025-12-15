@@ -1,18 +1,50 @@
-// game.js — main game loop with menu, hover NEO names
+// game.js — main game loop with menu, highscores, hover NEO names
 import { createPlayer } from './player.js';
 import { createMeteorManager } from './meteors.js';
 
-export function initGame({ canvas, ctx }) {
-  const player = createPlayer(canvas);
-  player.lives = 3;
-  player.score = 0;
+function getHighscores() {
+  return JSON.parse(localStorage.getItem('astroRunnerHighscores')) || [];
+}
 
+function saveHighscore(name, score) {
+  let scores = getHighscores();
+  scores.push({ name, score });
+  scores.sort((a, b) => b.score - a.score);
+  scores = scores.slice(0, 7);
+  localStorage.setItem('astroRunnerHighscores', JSON.stringify(scores));
+}
+
+export function initGame({ canvas, ctx }) {
+
+  const stars = Array.from({ length: 120 }, () => ({
+    x: Math.random() * canvas.width,
+    y: Math.random() * canvas.height,
+    size: Math.random() * 1.5,
+    alpha: Math.random(),
+    delta: (Math.random() * 0.02 + 0.005) * (Math.random() < 0.5 ? -1 : 1)
+  }));
+
+  function drawStars() {
+    for (const s of stars) {
+      s.alpha += s.delta;
+      if (s.alpha <= 0 || s.alpha >= 1) s.delta *= -1;
+      ctx.fillStyle = `rgba(255,255,255,${s.alpha})`;
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, s.size, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  const player = createPlayer(canvas);
   const meteorManager = createMeteorManager(canvas, player);
 
   const state = {
     running: false,
     altitude: 0
   };
+
+  player.lives = 3;
+  player.score = 0;
 
   const mouse = { x: 0, y: 0 };
   canvas.addEventListener('mousemove', e => {
@@ -23,6 +55,7 @@ export function initGame({ canvas, ctx }) {
 
   const collisionSound = new Audio('https://www.soundjay.com/mechanical/sounds/metal-hit-1.mp3');
   collisionSound.volume = 0.4;
+
   const bgMusic = new Audio('https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3');
   bgMusic.loop = true;
   bgMusic.volume = 0.2;
@@ -30,12 +63,39 @@ export function initGame({ canvas, ctx }) {
   function drawMenu() {
     ctx.fillStyle = 'black';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
+
     ctx.fillStyle = 'white';
-    ctx.font = '36px Arial';
     ctx.textAlign = 'center';
-    ctx.fillText('Astro Runner', canvas.width / 2, canvas.height / 2 - 40);
-    ctx.font = '24px Arial';
-    ctx.fillText('Press ENTER to Start', canvas.width / 2, canvas.height / 2 + 10);
+
+    ctx.font = '40px Arial';
+    ctx.fillText('Astro Runner', canvas.width / 2, 120);
+
+    ctx.font = '22px Arial';
+    ctx.fillText('Press ENTER to Start', canvas.width / 2, 160);
+
+    const scores = getHighscores();
+    ctx.font = '18px Arial';
+    ctx.fillText('Highscores', canvas.width / 2, 210);
+
+    scores.forEach((s, i) => {
+      ctx.fillText(
+        `${i + 1}. ${s.name} — ${Math.floor(s.score)}`,
+        canvas.width / 2,
+        240 + i * 22
+      );
+    });
+  }
+
+  function resetGame() {
+    player.x = canvas.width / 2;
+    player.y = canvas.height * 0.8;
+    player.vx = 0;
+    player.vy = 0;
+    player.lives = 3;
+    player.score = 0;
+
+    state.altitude = 0;
+    meteorManager.objects.length = 0;
   }
 
   window.addEventListener('keydown', e => {
@@ -54,10 +114,13 @@ export function initGame({ canvas, ctx }) {
     if (!state.running) return;
 
     player.update(t);
-    state.altitude += 0.05; // aumenta altitude com pontuação
+
+    // progressão
     player.score += 0.05;
+    state.altitude += 0.05;
 
     const prevLives = player.lives;
+
     meteorManager.maybeSpawn(t, state.altitude);
     meteorManager.update(16, state.altitude);
 
@@ -66,7 +129,11 @@ export function initGame({ canvas, ctx }) {
     if (player.lives <= 0) {
       state.running = false;
       bgMusic.pause();
-      setTimeout(() => alert(`Game Over! Score: ${Math.floor(player.score)}`), 50);
+
+      const name = prompt('Game Over! Enter your name:', 'Player') || 'Player';
+      saveHighscore(name, player.score);
+
+      resetGame();
       drawMenu();
     }
   }
@@ -82,10 +149,12 @@ export function initGame({ canvas, ctx }) {
     ctx.fillStyle = `rgb(${skyTop}, ${skyBottom}, 23)`;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
+    drawStars();
+
     player.draw(ctx);
     meteorManager.draw(ctx);
 
-    // hover NEO names
+    // Hover meteoritos (nome real + tamanho)
     for (const m of meteorManager.objects) {
       const dx = mouse.x - m.x;
       const dy = mouse.y - m.y;
@@ -94,7 +163,10 @@ export function initGame({ canvas, ctx }) {
         ctx.fillStyle = 'yellow';
         ctx.font = '14px Arial';
         ctx.textAlign = 'center';
-        ctx.fillText(`${m.name} (${Math.floor(m.size)} px)`, m.x, m.y - m.size);
+        const label = m.mass
+          ? `${m.name} — ${Math.floor(m.mass)} m`
+          : m.name;
+        ctx.fillText(label, m.x, m.y - m.size);
       }
     }
 
