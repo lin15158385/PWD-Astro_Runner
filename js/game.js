@@ -1,8 +1,9 @@
-// game.js — main game loop with menu, highscores, hover NEO names
+// game.js — main game loop with menu, highscores, particles, buffs
+
 import { createPlayer } from './player.js';
 import { createMeteorManager } from './meteors.js';
 import { createBuffManager } from './buffs.js';
-
+import { createParticles } from './particles.js';
 
 function getHighscores() {
   return JSON.parse(localStorage.getItem('astroRunnerHighscores')) || [];
@@ -12,13 +13,13 @@ function saveHighscore(name, score) {
   let scores = getHighscores();
   scores.push({ name, score });
   scores.sort((a, b) => b.score - a.score);
-  scores = scores.slice(0, 7);
-  localStorage.setItem('astroRunnerHighscores', JSON.stringify(scores));
+  localStorage.setItem('astroRunnerHighscores', JSON.stringify(scores.slice(0, 7)));
 }
 
 export function initGame({ canvas, ctx }) {
+  const particles = createParticles();
 
-  const stars = Array.from({ length: 120 }, () => ({
+  const stars = Array.from({ length: 140 }, () => ({
     x: Math.random() * canvas.width,
     y: Math.random() * canvas.height,
     size: Math.random() * 1.5,
@@ -41,24 +42,10 @@ export function initGame({ canvas, ctx }) {
   const meteorManager = createMeteorManager(canvas, player);
   const buffManager = createBuffManager(canvas, player);
 
-
-  const state = {
-    running: false,
-    altitude: 0
-  };
+  const state = { running: false, altitude: 0 };
 
   player.lives = 3;
   player.score = 0;
-
-  const mouse = { x: 0, y: 0 };
-  canvas.addEventListener('mousemove', e => {
-    const rect = canvas.getBoundingClientRect();
-    mouse.x = e.clientX - rect.left;
-    mouse.y = e.clientY - rect.top;
-  });
-
-  const collisionSound = new Audio('https://www.soundjay.com/mechanical/sounds/metal-hit-1.mp3');
-  collisionSound.volume = 0.4;
 
   const bgMusic = new Audio('https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3');
   bgMusic.loop = true;
@@ -67,37 +54,25 @@ export function initGame({ canvas, ctx }) {
   function drawMenu() {
     ctx.fillStyle = 'black';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
-
     ctx.fillStyle = 'white';
     ctx.textAlign = 'center';
-
     ctx.font = '40px Arial';
     ctx.fillText('Astro Runner', canvas.width / 2, 120);
-
     ctx.font = '22px Arial';
     ctx.fillText('Press ENTER to Start', canvas.width / 2, 160);
 
-    const scores = getHighscores();
     ctx.font = '18px Arial';
     ctx.fillText('Highscores', canvas.width / 2, 210);
-
-    scores.forEach((s, i) => {
-      ctx.fillText(
-        `${i + 1}. ${s.name} — ${Math.floor(s.score)}`,
-        canvas.width / 2,
-        240 + i * 22
-      );
+    getHighscores().forEach((s, i) => {
+      ctx.fillText(`${i + 1}. ${s.name} — ${Math.floor(s.score)}`, canvas.width / 2, 240 + i * 22);
     });
   }
 
   function resetGame() {
     player.x = canvas.width / 2;
     player.y = canvas.height * 0.8;
-    player.vx = 0;
-    player.vy = 0;
     player.lives = 3;
     player.score = 0;
-
     state.altitude = 0;
     meteorManager.objects.length = 0;
   }
@@ -107,11 +82,6 @@ export function initGame({ canvas, ctx }) {
       state.running = true;
       bgMusic.play().catch(() => {});
     }
-    if (e.code === 'Escape' && state.running) {
-      state.running = false;
-      bgMusic.pause();
-      drawMenu();
-    }
   });
 
   function update(t) {
@@ -119,30 +89,25 @@ export function initGame({ canvas, ctx }) {
 
     player.update(t);
 
-    // progressão
-    const prevLives = player.lives;
-
     buffManager.maybeSpawn(t);
     buffManager.update(16);
     buffManager.updateBuffTimers(16);
 
-    let scoreGain = player.buffs.doubleScore.active ? 0.1 : 0.05;
-    player.score += scoreGain;
-    state.altitude += scoreGain;
-
+    const gain = player.buffs.doubleScore?.active ? 0.1 : 0.05;
+    player.score += gain;
+    state.altitude += gain;
 
     meteorManager.maybeSpawn(t, state.altitude);
     meteorManager.update(16, state.altitude);
 
-    if (player.lives < prevLives) collisionSound.play();
+    particles.spawn(player.x, player.y + player.size, 'cyan', 2);
+    particles.update();
 
     if (player.lives <= 0) {
       state.running = false;
       bgMusic.pause();
-
-      const name = prompt('Game Over! Enter your name:', 'Player') || 'Player';
+      const name = prompt('Game Over! Name:', 'Player') || 'Player';
       saveHighscore(name, player.score);
-
       resetGame();
       drawMenu();
     }
@@ -154,36 +119,17 @@ export function initGame({ canvas, ctx }) {
       return;
     }
 
-    const skyTop = Math.min(34 + state.altitude * 0.02, 150);
-    const skyBottom = Math.min(26 + state.altitude * 0.015, 120);
-    ctx.fillStyle = `rgb(${skyTop}, ${skyBottom}, 23)`;
+    ctx.fillStyle = `rgb(30,30,50)`;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
     drawStars();
-
+    particles.draw(ctx);
     player.draw(ctx);
     meteorManager.draw(ctx);
+    buffManager.draw(ctx);
 
-    // Hover meteoritos (nome real + tamanho)
-    for (const m of meteorManager.objects) {
-      const dx = mouse.x - m.x;
-      const dy = mouse.y - m.y;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-      if (dist < m.size / 2) {
-        ctx.fillStyle = 'yellow';
-        ctx.font = '14px Arial';
-        ctx.textAlign = 'center';
-        const label = m.mass
-          ? `${m.name} — ${Math.floor(m.mass)} m`
-          : m.name;
-        ctx.fillText(label, m.x, m.y - m.size);
-      }
-    }
-  buffManager.draw(ctx);
-    ctx.fillStyle = '#dff7ff';
-    ctx.font = '16px Arial';
-    ctx.textAlign = 'left';
-    ctx.fillText(`Altitude: ${Math.floor(state.altitude)} m`, 20, 30);
+    ctx.fillStyle = 'white';
+    ctx.fillText(`Altitude: ${Math.floor(state.altitude)}`, 20, 30);
     ctx.fillText(`Lives: ${player.lives}`, 20, 50);
     ctx.fillText(`Score: ${Math.floor(player.score)}`, 20, 70);
   }

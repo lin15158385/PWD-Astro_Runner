@@ -59,6 +59,15 @@ export function createPlayer(canvas){
     ctx.closePath();
     ctx.fill();
 
+    // glow
+    const glow = ctx.createRadialGradient(p.x,p.y,0,p.x,p.y,p.size*2);
+    glow.addColorStop(0,'rgba(0,180,255,0.4)');
+    glow.addColorStop(1,'rgba(0,180,255,0)');
+    ctx.fillStyle = glow;
+    ctx.beginPath();
+    ctx.arc(p.x,p.y,p.size*2,0,Math.PI*2);
+    ctx.fill();
+
     // corpo
     ctx.fillStyle = '#fff';
     ctx.beginPath();
