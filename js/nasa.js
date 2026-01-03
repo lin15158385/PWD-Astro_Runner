@@ -3,7 +3,7 @@
 
 export const neoCache = [];
 
-export async function fetchNEOs(API_KEY='DEMO_KEY') {
+export async function fetchNEOs(API_KEY='aXY8A5Gn8pa2iqet58iyIN5hq9GO524woteUlif4') {
   const today = new Date();
   const yyyy = today.getFullYear();
   const mm = String(today.getMonth()+1).padStart(2,'0');
