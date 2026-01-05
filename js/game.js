@@ -54,15 +54,14 @@ export function initGame({ canvas, ctx }) {
   const buffManager = createBuffManager(canvas, player);
 
   const state = {
-    screen: 'menu', // menu | game | info
+    screen: 'menu',        // menu | game | info
     altitude: 0,
-    buffMessage: '',
-    buffMessageTime: 0,
     shake: 0,
-    infoPage: 0
+    infoPage: 0,
+    shipIdleOffset: 0,     // movimento flutuante da nave
   };
 
-  player.lives = 3;
+  player.lives = 3; 
   player.score = 0;
 
   /* ===================== SONS ===================== */
@@ -70,29 +69,45 @@ export function initGame({ canvas, ctx }) {
   bgMusic.loop = true;
   bgMusic.volume = 0.2;
 
-  const buffSound = new Audio('https://www.soundjay.com/button/sounds/button-10.mp3');
-  const hitSound = new Audio('https://www.soundjay.com/mechanical/sounds/metal-hit-1.mp3');
-
+  const buffSound = new Audio('https://actions.google.com/sounds/v1/alarms/beep_short.ogg');
+  buffSound.volume = 0.8;
+  const hitSound = new Audio('https://actions.google.com/sounds/v1/cartoon/metal_twang.ogg');
+  hitSound.volume = 0.8;
   /* ===================== MENU ===================== */
   function drawMenu() {
-    ctx.fillStyle = 'black';
-    ctx.fillRect(0,0,canvas.width,canvas.height);
-    ctx.fillStyle = 'white';
-    ctx.textAlign = 'center';
+  ctx.fillStyle = 'black';
+  ctx.fillRect(0,0,canvas.width,canvas.height);
 
-    ctx.font = '42px Arial';
-    ctx.fillText('Astro Runner', canvas.width/2, 120);
+  // título
+  ctx.fillStyle = 'white';
+  ctx.textAlign = 'center';
+  ctx.font = '42px Arial';
+  ctx.fillText('Astro Runner', canvas.width/2, 120);
 
-    ctx.font = '22px Arial';
-    ctx.fillText('ENTER — Start', canvas.width/2, 170);
-    ctx.fillText('I — Info', canvas.width/2, 200);
+  ctx.font = '22px Arial';
+  ctx.fillText('ENTER — Start', canvas.width/2, 170);
+  ctx.fillText('I — Info', canvas.width/2, 200);
 
-    ctx.font = '18px Arial';
-    ctx.fillText('Highscores', canvas.width/2, 250);
-    getHighscores().forEach((s,i)=>{
-      ctx.fillText(`${i+1}. ${s.name} — ${Math.floor(s.score)}`, canvas.width/2, 280+i*22);
-    });
-  }
+  // highscores
+  ctx.textAlign = 'left';
+  ctx.font = '18px Arial';
+  ctx.fillStyle = '#aaa';
+  ctx.fillText('Highscores', 20, 30);
+  getHighscores().forEach((s, i) => {
+    ctx.fillText(
+      `${i + 1}. ${s.name} — ${Math.floor(s.score)}`,
+      20,
+      50 + i * 18
+    );
+  });
+
+  // nave flutuante
+  state.shipIdleOffset = Math.sin(Date.now() * 0.002) * 10;
+  player.y = canvas.height * 0.8 + state.shipIdleOffset;
+  player.draw(ctx);
+  drawStars()
+}
+
 
   /* ===================== INFO ===================== */
   function drawMeteorPreview(x, y, radius, hover) {
@@ -180,68 +195,83 @@ ctx.fillText(
 
 
   /* ===================== INPUT ===================== */
-  window.addEventListener('keydown', e=>{
-    if(e.code==='Enter' && state.screen==='menu'){
-      state.screen='game';
-      bgMusic.currentTime=0;
-      bgMusic.play().catch(()=>{});
-    }
-    if(e.code==='KeyI' && state.screen==='menu'){
-      state.screen='info';
-    }
-    if(e.code==='Escape'){
-      state.screen='menu';
-      bgMusic.pause();
-    }
-    if (state.screen === 'info') {
+    window.addEventListener('keydown', e => {
+  // Teclas de start: Enter, NumpadEnter ou E
+  if ((e.key === 'Enter' || e.code === 'NumpadEnter' || e.code === 'KeyE') 
+      && state.screen === 'menu') {
+    state.screen = 'game';  // muda direto para o jogo
+    bgMusic.currentTime = 0;
+    bgMusic.play().catch(() => {});
+  }
+
+  // Info
+  if (e.key.toLowerCase() === 'i' && state.screen === 'menu') {
+    state.screen = 'info';
+  }
+
+  // Voltar ao menu
+  if (e.key === 'Escape') {
+    state.screen = 'menu';
+    bgMusic.pause();
+  }
+
+  // Navegação info
+  if (state.screen === 'info') {
     if (e.code === 'ArrowRight') {
       const maxPage = Math.floor(((window.neoCache?.length || 1) - 1) / 6);
       state.infoPage = Math.min(maxPage, state.infoPage + 1);
     }
-
     if (e.code === 'ArrowLeft') {
       state.infoPage = Math.max(0, state.infoPage - 1);
     }
   }
-  });
+});
+
 
   /* ===================== UPDATE ===================== */
   function update(t){
-    if(state.screen!=='game') return;
+  if (state.screen === 'menu') {
+    state.shipIdleOffset = Math.sin(Date.now() * 0.002) * 10;
+  return; // menu não atualiza o resto do jogo
+}
 
-    player.update(t);
+  if(state.screen !== 'game') return;
 
-    buffManager.maybeSpawn(t);
-    buffManager.update(16);
-    buffManager.updateBuffTimers(16);
+  // =================== Jogo ===================
+  player.update(t);
 
-    const gain = player.buffs.doubleScore.active ? 0.1 : 0.05;
-    player.score += gain;
-    state.altitude += gain;
+  buffManager.maybeSpawn(t);
+  buffManager.update(16);
+  buffManager.updateBuffTimers(16);
 
-    const prevLives = player.lives;
-    meteorManager.maybeSpawn(t, state.altitude);
-    meteorManager.update(16, state.altitude);
+  const gain = player.buffs.doubleScore.active ? 0.1 : 0.05;
+  player.score += gain;
+  state.altitude += gain;
 
-    if(player.lives < prevLives){
-      hitSound.currentTime=0;
-      hitSound.play().catch(()=>{});
-      state.shake = 15;
-    }
+  const prevLives = player.lives;
+  meteorManager.maybeSpawn(t, state.altitude);
+  meteorManager.update(16, state.altitude);
 
-    particles.spawn(player.x, player.y+player.size, 'cyan', 2);
-    particles.update();
-
-    if(player.lives<=0){
-      bgMusic.pause();
-      const name = prompt('Game Over! Name:', 'Player') || 'Player';
-      saveHighscore(name, player.score);
-      state.screen='menu';
-      player.lives=3;
-      player.score=0;
-      meteorManager.objects.length=0;
-    }
+  if(player.lives < prevLives){
+    hitSound.currentTime = 0;
+    hitSound.play().catch(()=>{});
+    state.shake = 15;
   }
+
+  particles.spawn(player.x, player.y + player.size, 'cyan', 2);
+  particles.update();
+
+  if(player.lives <= 0){
+    bgMusic.pause();
+    const name = prompt('Game Over! Name:', 'Player') || 'Player';
+    saveHighscore(name, player.score);
+    state.screen = 'menu';
+    player.lives = 3;
+    player.score = 0;
+    meteorManager.objects.length = 0;
+  }
+}
+
 
   /* ===================== RENDER ===================== */
   function render(){
@@ -275,10 +305,13 @@ ctx.fillText(
       }
     }
 
-    ctx.fillStyle='white';
-    ctx.fillText(`Altitude: ${Math.floor(state.altitude)}`,20,30);
-    ctx.fillText(`Lives: ${player.lives}`,20,50);
-    ctx.fillText(`Score: ${Math.floor(player.score)}`,20,70);
+    const fontScale = canvas.width / 800; 
+    ctx.fillStyle = 'white';        // redefine a cor
+    ctx.textAlign = 'left';         // redefine o alinhamento
+    ctx.font = `${8 * fontScale}px Arial`;
+    ctx.fillText(`Altitude: ${Math.floor(state.altitude)}`, 20, 30);
+    ctx.fillText(`Lives: ${player.lives}`, 20, 50);
+    ctx.fillText(`Score: ${Math.floor(player.score)}`, 20, 70);
   }
 
   function loop(t){
