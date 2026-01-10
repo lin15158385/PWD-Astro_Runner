@@ -3,6 +3,7 @@ import react from '@vitejs/plugin-react'
 
 // https://vite.dev/config/
 export default defineConfig({
+  base: "/PWD-Astro_Runner/", // <--- Adicionado para deployment no GitHub Pages
   plugins: [
     react({
       babel: {
