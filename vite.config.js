@@ -3,11 +3,5 @@ import react from '@vitejs/plugin-react'
 
 export default defineConfig({
   base: "/PWD-Astro_Runner/",
-  plugins: [
-    react({
-      babel: {
-        plugins: [['babel-plugin-react-compiler']],
-      },
-    }),
-  ],
+  plugins: [react()],
 })
