@@ -250,9 +250,13 @@ export default function Game() {
 
       // Fim de jogo
       if (player.lives <= 0) {
+        
+      if (bgMusic && musicPlaying) {
         bgMusic.pause();
         bgMusic.currentTime = 0;
         musicPlaying = false;
+      }
+
         const name = prompt('Game Over! Name:', 'Player') || 'Player';
         saveHighscore(name, player.score);
         // Reinicia o jogo
@@ -262,6 +266,7 @@ export default function Game() {
         player.score = 0;
         meteorManager.objects.length = 0;
         altitude.current = 0;
+
       }
     }
 
@@ -335,14 +340,6 @@ export default function Game() {
     };
   }, []);
 
-  useEffect(() => {
-  // Cria bgMusic se ainda não existir
-  if (!bgMusic) {
-    bgMusic = new Audio('https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3');
-    bgMusic.loop = true;
-    bgMusic.volume = 0.2;
-  }
-}, []);
   // Handler de teclado (fora do useEffect principal para usar setState)
   const handleKeyDown = e => {
     // Iniciar jogo
@@ -352,6 +349,12 @@ export default function Game() {
 ) {
   setState(prev => ({ ...prev, screen: 'game' }));
   screenRef.current = 'game';
+
+  if (!bgMusic) {
+    bgMusic = new Audio('https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3');
+    bgMusic.loop = true;
+    bgMusic.volume = 0.2;
+  }
 
   if (musicPlaying== false) {
     bgMusic.currentTime = 0;
@@ -391,6 +394,7 @@ export default function Game() {
       }
     }
   };
+
 
   // Adiciona listener de teclado (mount/unmount)
   useEffect(() => {
