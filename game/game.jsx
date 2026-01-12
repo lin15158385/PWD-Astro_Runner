@@ -4,6 +4,7 @@ import { createMeteorManager } from './meteors.js';
 import { createBuffManager } from './buffs.js';
 import { createParticles } from './particles.js';
 import { fetchNEOs } from '../game/nasa.js';
+import { supabase } from '../game/supabase.js';
 
 function getHighscores() {
   return JSON.parse(localStorage.getItem('astroRunnerHighscores')) || [];
@@ -14,6 +15,39 @@ function saveHighscore(name, score) {
   scores.push({ name, score });
   scores.sort((a, b) => b.score - a.score);
   localStorage.setItem('astroRunnerHighscores', JSON.stringify(scores.slice(0, 7)));
+
+  saveHighscoreSupabase(name, score);
+}
+
+async function saveHighscoreSupabase(name, score) {
+  const { error } = await supabase
+    .from('highscores')
+    .insert([{
+      name: String(name),
+      score: Math.floor(Number(score)) // garante que seja um inteiro
+    }]);
+
+  if (error) {
+    console.error('Supabase error:', error);
+  } else {
+    console.log('Highscore salvo com sucesso!');
+  }
+}
+
+async function fetchGlobalHighscores() {
+  try {
+    const { data, error } = await supabase
+      .from('highscores')      // tabela no Supabase
+      .select('*')
+      .order('score', { ascending: false })
+      .limit(7);
+      console.log('Highscore salvo com sucesso!');
+    if (error) throw error;
+    return data; // array com { name, score }
+  } catch (err) {
+    console.warn('Erro ao buscar ranking global:', err.message);
+    return null;
+  }
 }
 
 export default function Game() {
@@ -22,6 +56,7 @@ export default function Game() {
     screen: 'menu',
     infoPage: 0
   });
+  
 
   console.log("initGame rodando!");
 
@@ -61,6 +96,16 @@ export default function Game() {
     window.removeEventListener('resize', resize);
   };
   }, []);
+  const [globalHighscores, setGlobalHighscores] = useState([]);
+
+  useEffect(() => {
+    async function loadGlobalScores() {
+      const scores = await fetchGlobalHighscores();
+      if (scores) setGlobalHighscores(scores);
+    }
+    loadGlobalScores();
+  }, []);
+
 
   useEffect(() => { screenRef.current = state.screen; }, [state.screen]);
   useEffect(() => { infoPageRef.current = state.infoPage; }, [state.infoPage]);
@@ -93,10 +138,10 @@ export default function Game() {
 
     // Criando objetos do jogo uma única vez
     const particles = createParticles();
-    // Cria estrelas aleatórias para o fundo
+    // Cria estrelas aleatórias para o fundo (com porcentagem)
     const stars = Array.from({ length: 140 }, () => ({
-      x: Math.random() * canvas.width,
-      y: Math.random() * canvas.height,
+      xPercent: Math.random(),  // posição relativa (0 a 1)
+      yPercent: Math.random(),
       size: Math.random() * 1.5,
       alpha: Math.random(),
       delta: (Math.random() * 0.02 + 0.005) * (Math.random() < 0.5 ? -1 : 1)
@@ -110,16 +155,22 @@ export default function Game() {
 
     // Desenha as estrelas do fundo com efeito de cintilação
     function drawStars() {
-      for (const s of stars) {
-        s.alpha += s.delta;
-        if (s.alpha <= 0 || s.alpha >= 1) s.delta *= -1;
-        ctx.fillStyle = `rgba(255,255,255,${s.alpha})`;
-        ctx.beginPath();
-        ctx.arc(s.x, s.y, s.size, 0, Math.PI * 2);
-        ctx.fill();
-      }
-    }
+  for (const s of stars) {
+    s.alpha += s.delta;
+    if (s.alpha <= 0 || s.alpha >= 1) s.delta *= -1;
 
+    const x = s.xPercent * canvas.width;
+    const y = s.yPercent * canvas.height;
+
+    ctx.fillStyle = `rgba(255,255,255,${s.alpha})`;
+    ctx.beginPath();
+    ctx.arc(x, y, s.size, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+
+  
     // Desenha o menu inicial (título, instruções, placar)
     function drawMenu() {
       ctx.fillStyle = 'black';
@@ -132,7 +183,7 @@ export default function Game() {
       ctx.fillText('ENTER — Iniciar', canvas.width / 2, 170);
       ctx.fillText('I — Informações', canvas.width / 2, 200);
 
-      // Highscores
+      // Highscores esquerda
       ctx.textAlign = 'left';
       ctx.font = '18px Arial';
       ctx.fillStyle = '#aaa';
@@ -141,12 +192,26 @@ export default function Game() {
         ctx.fillText(`${i + 1}. ${s.name} — ${Math.floor(s.score)}`, 20, 50 + i * 18);
       });
 
+      // --- Highscores globais (direita) ---
+      ctx.textAlign = 'right';
+      ctx.fillStyle = '#66ff66';
+      ctx.fillText('Global Ranking', canvas.width - 20, 30);
+
+      if (globalHighscores.length > 0) {
+        globalHighscores.forEach((s, i) => {
+          ctx.fillText(`${i + 1}. ${s.name} — ${Math.floor(s.score)}`, canvas.width - 20, 50 + i * 18);
+        });
+      } else {
+        ctx.fillText('Loading...', canvas.width - 20, 50);
+      }
+
       // Nave flutuante
       shipIdleOffset.current = Math.sin(Date.now() * 0.002) * 10;
       player.y = canvas.height * 0.8 + shipIdleOffset.current;
       player.draw(ctx);
       drawStars();
     }
+
 
     // Desenha um meteorito de pré-visualização (no painel de informação)
     function drawMeteorPreview(x, y, radius, hover) {
