@@ -50,19 +50,6 @@ async function fetchGlobalHighscores() {
   }
 }
 
-let globalHighscores = [];
-let highscoresLoaded = false;
-
-async function loadGlobalScores() {
-  const scores = await fetchGlobalHighscores();
-  if (scores) {
-    globalHighscores = scores;
-    highscoresLoaded = true; // flag que indica que os dados chegaram
-  }
-}
-
-loadGlobalScores();
-
 export default function Game() {
   const canvasRef = useRef(null);
   const [state, setState] = useState({
@@ -70,8 +57,6 @@ export default function Game() {
     infoPage: 0
   });
   
-
-  loadGlobalScores();
   console.log("initGame rodando!");
 
   const shipIdleOffset = useRef(0);
@@ -88,7 +73,6 @@ export default function Game() {
   useEffect(() => {
   console.log("App.jsx rodando");
   const canvas = canvasRef.current;
-  const ctx = canvas.getContext('2d');
 
   // tamanho inicial
   canvas.width = window.innerWidth;
@@ -110,16 +94,24 @@ export default function Game() {
     window.removeEventListener('resize', resize);
   };
   }, []);
+
   const [globalHighscores, setGlobalHighscores] = useState([]);
 
-  useEffect(() => {
-    async function loadGlobalScores() {
-      const scores = await fetchGlobalHighscores();
-      if (scores) setGlobalHighscores(scores);
-    }
-    loadGlobalScores();
-  }, []);
 
+  useEffect(() => {
+  async function loadScores() {
+    const scores = await fetchGlobalHighscores();
+    if (scores) {
+      setGlobalHighscores(scores);
+    }
+  }
+  loadScores();
+}, []);
+
+const globalHighscoresRef = useRef([]);
+useEffect(() => {
+  globalHighscoresRef.current = globalHighscores;
+}, [globalHighscores]);
 
   useEffect(() => { screenRef.current = state.screen; }, [state.screen]);
   useEffect(() => { infoPageRef.current = state.infoPage; }, [state.infoPage]);
@@ -210,13 +202,15 @@ export default function Game() {
       ctx.textAlign = 'right';
       ctx.fillStyle = '#66ff66';
       ctx.fillText('Global Ranking', canvas.width - 20, 30);
+      const globalScores = globalHighscoresRef.current;
+      
 
-      if (highscoresLoaded && globalHighscores.length > 0) {
-        globalHighscores.forEach((s, i) => {
+      if (globalScores.length > 0) {
+        globalScores.forEach((s, i) => {
           ctx.fillText(`${i + 1}. ${s.name} — ${Math.floor(s.score)}`, canvas.width - 20, 50 + i * 18);
         });
       } else {
-        ctx.fillText('Loadinga...', canvas.width - 20, 50);
+        ctx.fillText('Loading...', canvas.width - 20, 50);
       }
 
       // Nave flutuante
@@ -338,7 +332,6 @@ export default function Game() {
 
         const name = prompt('Game Over! Name:', 'Player') || 'Player';
         saveHighscore(name, player.score);
-        loadGlobalScores();
         // Reinicia o jogo
         setState(prev => ({ ...prev, screen: 'menu' }));
         screenRef.current = 'menu';
@@ -435,7 +428,7 @@ export default function Game() {
     bgMusic.loop = true;
     bgMusic.volume = 0.2;
   }
-  loadGlobalScores();
+
   if (musicPlaying== false) {
     bgMusic.currentTime = 0;
     bgMusic.play().catch(() => {});
@@ -458,7 +451,6 @@ export default function Game() {
       bgMusic.currentTime = 0;
       musicPlaying = false;
     }
-    loadGlobalScores();
 }
     // Navegar páginas de info
     if (screenRef.current === 'info') {
