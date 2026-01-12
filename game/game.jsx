@@ -41,7 +41,7 @@ async function fetchGlobalHighscores() {
       .select('*')
       .order('score', { ascending: false })
       .limit(7);
-      console.log('Highscore salvo com sucesso!');
+      console.log('Highscore fetch com sucesso!');
     if (error) throw error;
     return data; // array com { name, score }
   } catch (err) {
@@ -49,6 +49,19 @@ async function fetchGlobalHighscores() {
     return null;
   }
 }
+
+let globalHighscores = [];
+let highscoresLoaded = false;
+
+async function loadGlobalScores() {
+  const scores = await fetchGlobalHighscores();
+  if (scores) {
+    globalHighscores = scores;
+    highscoresLoaded = true; // flag que indica que os dados chegaram
+  }
+}
+
+loadGlobalScores();
 
 export default function Game() {
   const canvasRef = useRef(null);
@@ -58,6 +71,7 @@ export default function Game() {
   });
   
 
+  loadGlobalScores();
   console.log("initGame rodando!");
 
   const shipIdleOffset = useRef(0);
@@ -197,12 +211,12 @@ export default function Game() {
       ctx.fillStyle = '#66ff66';
       ctx.fillText('Global Ranking', canvas.width - 20, 30);
 
-      if (globalHighscores.length > 0) {
+      if (highscoresLoaded && globalHighscores.length > 0) {
         globalHighscores.forEach((s, i) => {
           ctx.fillText(`${i + 1}. ${s.name} — ${Math.floor(s.score)}`, canvas.width - 20, 50 + i * 18);
         });
       } else {
-        ctx.fillText('Loading...', canvas.width - 20, 50);
+        ctx.fillText('Loadinga...', canvas.width - 20, 50);
       }
 
       // Nave flutuante
@@ -324,6 +338,7 @@ export default function Game() {
 
         const name = prompt('Game Over! Name:', 'Player') || 'Player';
         saveHighscore(name, player.score);
+        loadGlobalScores();
         // Reinicia o jogo
         setState(prev => ({ ...prev, screen: 'menu' }));
         screenRef.current = 'menu';
@@ -420,7 +435,7 @@ export default function Game() {
     bgMusic.loop = true;
     bgMusic.volume = 0.2;
   }
-
+  loadGlobalScores();
   if (musicPlaying== false) {
     bgMusic.currentTime = 0;
     bgMusic.play().catch(() => {});
@@ -443,6 +458,7 @@ export default function Game() {
       bgMusic.currentTime = 0;
       musicPlaying = false;
     }
+    loadGlobalScores();
 }
     // Navegar páginas de info
     if (screenRef.current === 'info') {
